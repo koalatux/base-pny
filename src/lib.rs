@@ -96,45 +96,30 @@ impl<'a> Converter<'a> {
             return Err(DecodeError::InputLengthUnmatched);
         }
 
-        // TODO: DRY this up, make it more functional
-        if self.delimiter.is_some() {
-            let symbol_values = value.rsplit(self.delimiter.unwrap())
-                .map(|x| self.symbol_value(x.to_string()));
-            let mut result: u128 = 0;
-            let mut multiplier: u128 = 0;
-            for v in symbol_values {
-                if multiplier == 0 {
-                    multiplier = 1;
-                } else {
-                    multiplier = multiplier.checked_mul(self.base())
-                        .ok_or(DecodeError::InputOverflow)?;
-                }
-                result = result.checked_add(
-                    v?.checked_mul(multiplier)
-                        .ok_or(DecodeError::InputOverflow)?
-                ).ok_or(DecodeError::InputOverflow)?;
-            }
-            Ok(result)
+        let rsymbols: Box<Iterator<Item=&str>> = if self.delimiter.is_some() {
+            Box::new(value.rsplit(self.delimiter.unwrap()))
         } else {
-            let mut result: u128 = 0;
-            let mut multiplier: u128 = 0;
             let slen = self.symbol_len().unwrap();
-            for i in (0..(value.len() / slen)).rev() {
-                let symbol = &value[(i * slen)..((i + 1) * slen)];
-                let v = self.symbol_value(symbol.to_string());
-                if multiplier == 0 {
-                    multiplier = 1;
-                } else {
-                    multiplier = multiplier.checked_mul(self.base())
-                        .ok_or(DecodeError::InputOverflow)?;
-                }
-                result = result.checked_add(
-                    v?.checked_mul(multiplier)
-                        .ok_or(DecodeError::InputOverflow)?
-                ).ok_or(DecodeError::InputOverflow)?;
+            Box::new((0..(value.len() / slen)).rev()
+                .map(move |i| &value[(i * slen)..((i + 1) * slen)]))
+        };
+
+        let symbol_values = rsymbols.map(|x| self.symbol_value(x.to_string()));
+        let mut result: u128 = 0;
+        let mut multiplier: u128 = 0;
+        for v in symbol_values {
+            if multiplier == 0 {
+                multiplier = 1;
+            } else {
+                multiplier = multiplier.checked_mul(self.base())
+                    .ok_or(DecodeError::InputOverflow)?;
             }
-            Ok(result)
+            result = result.checked_add(
+                v?.checked_mul(multiplier)
+                    .ok_or(DecodeError::InputOverflow)?
+            ).ok_or(DecodeError::InputOverflow)?;
         }
+        Ok(result)
     }
 }
 
