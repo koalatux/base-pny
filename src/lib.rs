@@ -1,6 +1,7 @@
 extern crate itertools;
 
 use itertools::Itertools;
+use std::collections::HashMap;
 
 #[derive(Debug, PartialEq)]
 pub enum ConverterError {
@@ -21,6 +22,7 @@ pub enum DecodeError {
 #[derive(Debug)]
 pub struct Converter<'a> {
     alphabet: &'a [&'a str],
+    symbols_map: HashMap<&'a str, u128>,
     delimiter: Option<char>,
 }
 
@@ -30,13 +32,15 @@ impl<'a> Converter<'a> {
             return Err(ConverterError::AlphabetTooSmall);
         }
 
-        for i in 1..alphabet.len() {
-            if alphabet[i..].contains(&alphabet[i - 1]) {
-                return Err(ConverterError::SymbolsNotUnique);
-            }
+        let mut symbols_map = HashMap::with_capacity(alphabet.len());
+        if alphabet.iter()
+            .enumerate()
+            .map(|(i, &x)| symbols_map.insert(x, i as u128))
+            .any(|x| x.is_some()) {
+            return Err(ConverterError::SymbolsNotUnique);
         }
 
-        Ok(Self { alphabet, delimiter })
+        Ok(Self { alphabet, symbols_map, delimiter })
     }
 
     pub fn with_uniform_alphabet(alphabet: &'a [&str]) -> Result<Self, ConverterError> {
@@ -84,10 +88,9 @@ impl<'a> Converter<'a> {
     }
 
     fn symbol_value(&self, symbol: &str) -> Result<u128, DecodeError> {
-        self.alphabet.iter()
-            .position(|x| *x == symbol)
+        self.symbols_map.get(symbol)
             .ok_or(DecodeError::SymbolInvalid)
-            .and_then(|x| Ok(x as u128))
+            .and_then(|&x| Ok(x as u128))
     }
 
     pub fn decode(&self, value: &str) -> Result<u128, DecodeError> {
