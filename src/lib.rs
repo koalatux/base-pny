@@ -1,3 +1,7 @@
+extern crate itertools;
+
+use itertools::Itertools;
+
 #[derive(Debug, PartialEq)]
 pub enum ConverterError {
     AlphabetNotUniform,
@@ -60,18 +64,16 @@ impl<'a> Converter<'a> {
     }
 
     pub fn encode(&self, mut value: u128) -> String {
-        let mut result = String::new();
+        let mut symbols = Vec::new();
         loop {
-            if !result.is_empty() && self.delimiter.is_some() {
-                result = self.delimiter.unwrap().to_string() + &result;
-            }
-            result = self.alphabet[(value % self.base()) as usize].to_string() + &result;
+            symbols.push(self.alphabet[(value % self.base()) as usize]);
             value /= self.base();
             if value == 0 {
                 break;
             }
         }
-        result
+        let delimiter = self.delimiter.map_or("".to_string(), |x| x.to_string());
+        Itertools::join(&mut symbols.iter().rev(), &delimiter)
     }
 
     fn symbol_len(&self) -> Option<usize> {

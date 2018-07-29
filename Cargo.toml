@@ -4,3 +4,4 @@ version = "0.0.1"
 authors = ["Adrian Friedli <adi@koalatux.ch>"]
 
 [dependencies]
+itertools = "0.7.8"
