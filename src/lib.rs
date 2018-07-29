@@ -208,9 +208,8 @@ mod tests {
 
     #[test]
     fn test_decode_overflow() {
-        let hex_alphabet_mem: Vec<_> = "0123456789abcdef".chars().map(|x| x.to_string()).collect();
-        let hex_alphabet: Vec<_> = hex_alphabet_mem.iter().map(|x| &x[..]).collect();
-        let converter = Converter::with_uniform_alphabet(&hex_alphabet).unwrap();
+        let hex_alphabet: Vec<_> = "0123456789abcdef".matches(|_| true).collect();
+        let converter = Converter::with_uniform_alphabet(&hex_alphabet[..]).unwrap();
 
         let ipv6addr: u128 = 0x20010db8000000420000cafffe001337;
         let ipv6addr_s = "20010db8000000420000cafffe001337".to_string();
