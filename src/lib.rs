@@ -33,14 +33,20 @@ impl<'a> Converter<'a> {
         }
 
         let mut symbols_map = HashMap::with_capacity(alphabet.len());
-        if alphabet.iter()
+        if alphabet
+            .iter()
             .enumerate()
             .map(|(i, &x)| symbols_map.insert(x, i as u128))
-            .any(|x| x.is_some()) {
+            .any(|x| x.is_some())
+        {
             return Err(ConverterError::SymbolsNotUnique);
         }
 
-        Ok(Self { alphabet, symbols_map, delimiter })
+        Ok(Self {
+            alphabet,
+            symbols_map,
+            delimiter,
+        })
     }
 
     pub fn with_uniform_alphabet(alphabet: &'a [&str]) -> Result<Self, ConverterError> {
@@ -88,7 +94,8 @@ impl<'a> Converter<'a> {
     }
 
     fn symbol_value(&self, symbol: &str) -> Result<u128, DecodeError> {
-        self.symbols_map.get(symbol)
+        self.symbols_map
+            .get(symbol)
             .ok_or(DecodeError::SymbolInvalid)
             .and_then(|&x| Ok(x as u128))
     }
@@ -101,12 +108,15 @@ impl<'a> Converter<'a> {
             return Err(DecodeError::InputLengthUnmatched);
         }
 
-        let rsymbols: Box<Iterator<Item=&str>> = if self.delimiter.is_some() {
+        let rsymbols: Box<Iterator<Item = &str>> = if self.delimiter.is_some() {
             Box::new(value.rsplit(self.delimiter.unwrap()))
         } else {
             let slen = self.symbol_len().unwrap();
-            Box::new((0..(value.len() / slen)).rev()
-                .map(move |i| &value[(i * slen)..((i + 1) * slen)]))
+            Box::new(
+                (0..(value.len() / slen))
+                    .rev()
+                    .map(move |i| &value[(i * slen)..((i + 1) * slen)]),
+            )
         };
 
         let symbol_values = rsymbols.map(|x| self.symbol_value(x));
@@ -116,13 +126,13 @@ impl<'a> Converter<'a> {
             if multiplier == 0 {
                 multiplier = 1;
             } else {
-                multiplier = multiplier.checked_mul(self.base())
+                multiplier = multiplier
+                    .checked_mul(self.base())
                     .ok_or(DecodeError::Overflow)?;
             }
-            result = result.checked_add(
-                v?.checked_mul(multiplier)
-                    .ok_or(DecodeError::Overflow)?
-            ).ok_or(DecodeError::Overflow)?;
+            result = result
+                .checked_add(v?.checked_mul(multiplier).ok_or(DecodeError::Overflow)?)
+                .ok_or(DecodeError::Overflow)?;
         }
         Ok(result)
     }
@@ -177,38 +187,86 @@ mod tests {
         let binary_alphabet = ["0", "1"];
         let converter = Converter::with_uniform_alphabet(&binary_alphabet).unwrap();
         assert_eq!("10110111", converter.encode(0b10110111));
-        assert_eq!(0b10110111, converter.decode(&"10110111".to_string()).unwrap());
-        assert_eq!(DecodeError::InputEmpty, converter.decode(&"".to_string()).unwrap_err());
-        assert_eq!(DecodeError::SymbolInvalid, converter.decode(&"10110121".to_string()).unwrap_err());
+        assert_eq!(
+            0b10110111,
+            converter.decode(&"10110111".to_string()).unwrap()
+        );
+        assert_eq!(
+            DecodeError::InputEmpty,
+            converter.decode(&"".to_string()).unwrap_err()
+        );
+        assert_eq!(
+            DecodeError::SymbolInvalid,
+            converter.decode(&"10110121".to_string()).unwrap_err()
+        );
 
         let decimal_alphabet_mem: Vec<_> = (0..10).map(|i| i.to_string()).collect();
         let decimal_alphabet: Vec<_> = decimal_alphabet_mem.iter().map(|x| &x[..]).collect();
         let converter = Converter::with_uniform_alphabet(&decimal_alphabet[..]).unwrap();
         assert_eq!("5108631", converter.encode(5108631));
         assert_eq!(5108631, converter.decode(&"5108631".to_string()).unwrap());
-        assert_eq!(DecodeError::SymbolInvalid, converter.decode(&"51x8631".to_string()).unwrap_err());
+        assert_eq!(
+            DecodeError::SymbolInvalid,
+            converter.decode(&"51x8631".to_string()).unwrap_err()
+        );
 
         let tertiary_alphabet = ["zero", "oone", "twoo"];
         let converter = Converter::with_uniform_alphabet(&tertiary_alphabet).unwrap();
         assert_eq!("ooneoonetwoozero", converter.encode(42));
-        assert_eq!(42, converter.decode(&"ooneoonetwoozero".to_string()).unwrap());
-        assert_eq!(DecodeError::SymbolInvalid, converter.decode(&"ooneoometwoozero".to_string()).unwrap_err());
-        assert_eq!(DecodeError::InputLengthUnmatched, converter.decode(&"ooneoonetwoozer".to_string()).unwrap_err());
+        assert_eq!(
+            42,
+            converter.decode(&"ooneoonetwoozero".to_string()).unwrap()
+        );
+        assert_eq!(
+            DecodeError::SymbolInvalid,
+            converter
+                .decode(&"ooneoometwoozero".to_string())
+                .unwrap_err()
+        );
+        assert_eq!(
+            DecodeError::InputLengthUnmatched,
+            converter
+                .decode(&"ooneoonetwoozer".to_string())
+                .unwrap_err()
+        );
 
         let converter = Converter::with_delimiter(&binary_alphabet, '-').unwrap();
         assert_eq!("1-1-0-1", converter.encode(13));
         assert_eq!(13, converter.decode(&"1-1-0-1".to_string()).unwrap());
-        assert_eq!(DecodeError::InputEmpty, converter.decode(&"".to_string()).unwrap_err());
-        assert_eq!(DecodeError::SymbolInvalid, converter.decode(&"1-1-0-1-".to_string()).unwrap_err());
-        assert_eq!(DecodeError::SymbolInvalid, converter.decode(&"-1-1-0-1".to_string()).unwrap_err());
-        assert_eq!(DecodeError::SymbolInvalid, converter.decode(&"1--1-0-1".to_string()).unwrap_err());
-        assert_eq!(DecodeError::SymbolInvalid, converter.decode(&"1-10-1".to_string()).unwrap_err());
+        assert_eq!(
+            DecodeError::InputEmpty,
+            converter.decode(&"".to_string()).unwrap_err()
+        );
+        assert_eq!(
+            DecodeError::SymbolInvalid,
+            converter.decode(&"1-1-0-1-".to_string()).unwrap_err()
+        );
+        assert_eq!(
+            DecodeError::SymbolInvalid,
+            converter.decode(&"-1-1-0-1".to_string()).unwrap_err()
+        );
+        assert_eq!(
+            DecodeError::SymbolInvalid,
+            converter.decode(&"1--1-0-1".to_string()).unwrap_err()
+        );
+        assert_eq!(
+            DecodeError::SymbolInvalid,
+            converter.decode(&"1-10-1".to_string()).unwrap_err()
+        );
 
         let binary_names_alphabet = ["zero", "one"];
         let converter = Converter::with_delimiter(&binary_names_alphabet, ' ').unwrap();
         assert_eq!("one zero one one", converter.encode(11));
-        assert_eq!(11, converter.decode(&"one zero one one".to_string()).unwrap());
-        assert_eq!(DecodeError::SymbolInvalid, converter.decode(&"one zer one one".to_string()).unwrap_err());
+        assert_eq!(
+            11,
+            converter.decode(&"one zero one one".to_string()).unwrap()
+        );
+        assert_eq!(
+            DecodeError::SymbolInvalid,
+            converter
+                .decode(&"one zer one one".to_string())
+                .unwrap_err()
+        );
     }
 
     #[test]
@@ -220,6 +278,9 @@ mod tests {
         let ipv6addr_s = "20010db8000000420000cafffe001337".to_string();
         assert_eq!(ipv6addr_s, converter.encode(ipv6addr));
         assert_eq!(ipv6addr, converter.decode(&ipv6addr_s).unwrap());
-        assert_eq!(DecodeError::Overflow, converter.decode(&(ipv6addr_s + "0")).unwrap_err());
+        assert_eq!(
+            DecodeError::Overflow,
+            converter.decode(&(ipv6addr_s + "0")).unwrap_err()
+        );
     }
 }
