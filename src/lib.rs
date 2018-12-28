@@ -1,7 +1,5 @@
 #![forbid(unsafe_code)]
 
-extern crate itertools;
-
 use itertools::Itertools;
 use std::collections::HashMap;
 
