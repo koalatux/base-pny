@@ -1,24 +1,44 @@
+#![warn(missing_docs)]
 #![forbid(unsafe_code)]
+
+//! Encode and decode data with arbitrary bases including support for multicharacter symbols
+//! allowing bases greater than 256.
+//!
+//! Symbols in the alphabet must have an uniform length or must be separated by a delimiter character.
+//!
+//! Currently only `u128` is supported as a data type.
 
 use itertools::Itertools;
 use std::collections::HashMap;
 
+/// Error type returned by the `Converter` factory methods `with_uniform_alphabet` and
+/// `with_delimiter`.
 #[derive(Debug, PartialEq)]
 pub enum ConverterError {
+    /// The symbols in the alphabet differ in length.
     AlphabetNotUniform,
+    /// The alphabet contains too few symbols.
     AlphabetTooSmall,
+    /// The delimiter is part of a symbol.
     DelimiterOverlapping,
+    /// There are duplicate symbols in the alphabet.
     SymbolsNotUnique,
 }
 
+/// Error type returned by the `decode` method of the `Converter`.
 #[derive(Debug, PartialEq)]
 pub enum DecodeError {
+    /// The input string is empty.
     InputEmpty,
+    /// The input length is not a multiple of the symbol length, when using an uniform alphabet.
     InputLengthUnmatched,
+    /// An integer overflow occurred.
     Overflow,
+    /// An invalid symbol has been encountered in the input data.
     SymbolInvalid,
 }
 
+/// Converter for a specific alphabet and base and an optional delimiter.
 #[derive(Debug)]
 pub struct Converter<'a> {
     alphabet: &'a [&'a str],
@@ -49,6 +69,7 @@ impl<'a> Converter<'a> {
         })
     }
 
+    /// Create a `Converter` with an uniform alphabet and no delimiter.
     pub fn with_uniform_alphabet(alphabet: &'a [&str]) -> Result<Self, ConverterError> {
         if alphabet.len() >= 2 {
             for symbol in &alphabet[1..] {
@@ -60,6 +81,7 @@ impl<'a> Converter<'a> {
         Self::new(alphabet, None)
     }
 
+    /// Create a `Converter` with a delimiter.
     pub fn with_delimiter(alphabet: &'a [&str], delimiter: char) -> Result<Self, ConverterError> {
         for symbol in alphabet {
             if symbol.contains(delimiter) {
@@ -73,6 +95,7 @@ impl<'a> Converter<'a> {
         self.alphabet.len() as u128
     }
 
+    /// Encode data to the `Converter`'s base.
     pub fn encode(&self, mut value: u128) -> String {
         let mut symbols = Vec::new();
         loop {
@@ -100,6 +123,7 @@ impl<'a> Converter<'a> {
             .and_then(|&x| Ok(x as u128))
     }
 
+    /// Decode data from the `Converter`'s base.
     pub fn decode(&self, value: &str) -> Result<u128, DecodeError> {
         if value.is_empty() {
             return Err(DecodeError::InputEmpty);
