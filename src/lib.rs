@@ -4,7 +4,7 @@
 //! Encode and decode data with arbitrary bases including support for multicharacter symbols
 //! allowing bases greater than 256.
 //!
-//! Symbols in the alphabet must have an uniform length or must be separated by a delimiter character.
+//! Symbols in the alphabet must have a uniform length or must be separated by a delimiter character.
 //!
 //! Currently only `u128` is supported as a data type.
 
@@ -30,7 +30,7 @@ pub enum ConverterError {
 pub enum DecodeError {
     /// The input string is empty.
     InputEmpty,
-    /// The input length is not a multiple of the symbol length, when using an uniform alphabet.
+    /// The input length is not a multiple of the symbol length, when using a uniform alphabet.
     InputLengthUnmatched,
     /// An integer overflow occurred.
     Overflow,
@@ -69,7 +69,7 @@ impl<'a> Converter<'a> {
         })
     }
 
-    /// Create a `Converter` with an uniform alphabet and no delimiter.
+    /// Create a `Converter` with a uniform alphabet and no delimiter.
     pub fn with_uniform_alphabet(alphabet: &'a [&str]) -> Result<Self, ConverterError> {
         if alphabet.len() >= 2 {
             for symbol in &alphabet[1..] {
