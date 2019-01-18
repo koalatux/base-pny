@@ -3,6 +3,9 @@ name = "base-pny"
 version = "0.0.1"
 authors = ["Adrian Friedli <adi@koalatux.ch>"]
 edition = "2018"
+description = "Coder for arbitrary bases"
+repository = "https://github.com/koalatux/base-pny"
+license = "Apache-2.0"
 
 [dependencies]
 itertools = "0.8"
