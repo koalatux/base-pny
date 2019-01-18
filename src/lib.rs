@@ -12,11 +12,11 @@
 use itertools::Itertools;
 use std::collections::HashMap;
 
-/// Error type returned by the [`Converter`](struct.Converter.html) factory methods
-/// [`with_uniform_alphabet`](struct.Converter.html#method.with_uniform_alphabet) and
-/// [`with_delimiter`](struct.Converter.html#method.with_delimiter).
+/// Error type returned by the [`Coder`](struct.Coder.html) factory methods
+/// [`with_uniform_alphabet`](struct.Coder.html#method.with_uniform_alphabet) and
+/// [`with_delimiter`](struct.Coder.html#method.with_delimiter).
 #[derive(Debug, PartialEq)]
-pub enum ConverterError {
+pub enum CoderFactoryError {
     /// The symbols in the alphabet differ in length.
     AlphabetNotUniform,
     /// The alphabet contains too few symbols.
@@ -27,10 +27,10 @@ pub enum ConverterError {
     SymbolsNotUnique,
 }
 
-/// Error type returned by the [`decode`](struct.Converter.html#method.decode) method of the
-/// [`Converter`](struct.Converter.html).
+/// Error type returned by the [`decode`](struct.Coder.html#method.decode) method of the
+/// [`Coder`](struct.Coder.html).
 #[derive(Debug, PartialEq)]
-pub enum DecodeError {
+pub enum DecoderError {
     /// The input string is empty.
     InputEmpty,
     /// The input length is not a multiple of the symbol length, when using a uniform alphabet.
@@ -41,18 +41,18 @@ pub enum DecodeError {
     SymbolInvalid,
 }
 
-/// Converter for a specific alphabet.
+/// Coder for a specific alphabet.
 #[derive(Debug)]
-pub struct Converter<'a> {
+pub struct Coder<'a> {
     alphabet: &'a [&'a str],
     symbols_map: HashMap<&'a str, u128>,
     delimiter: Option<char>,
 }
 
-impl<'a> Converter<'a> {
-    fn new(alphabet: &'a [&str], delimiter: Option<char>) -> Result<Self, ConverterError> {
+impl<'a> Coder<'a> {
+    fn new(alphabet: &'a [&str], delimiter: Option<char>) -> Result<Self, CoderFactoryError> {
         if alphabet.len() < 2 {
-            return Err(ConverterError::AlphabetTooSmall);
+            return Err(CoderFactoryError::AlphabetTooSmall);
         }
 
         let mut symbols_map = HashMap::with_capacity(alphabet.len());
@@ -62,7 +62,7 @@ impl<'a> Converter<'a> {
             .map(|(i, &x)| symbols_map.insert(x, i as u128))
             .any(|x| x.is_some())
         {
-            return Err(ConverterError::SymbolsNotUnique);
+            return Err(CoderFactoryError::SymbolsNotUnique);
         }
 
         Ok(Self {
@@ -72,23 +72,26 @@ impl<'a> Converter<'a> {
         })
     }
 
-    /// Create a [`Converter`](struct.Converter.html) with a uniform alphabet and no delimiter.
-    pub fn with_uniform_alphabet(alphabet: &'a [&str]) -> Result<Self, ConverterError> {
+    /// Create a [`Coder`](struct.Coder.html) with a uniform alphabet and no delimiter.
+    pub fn with_uniform_alphabet(alphabet: &'a [&str]) -> Result<Self, CoderFactoryError> {
         if alphabet.len() >= 2 {
             for symbol in &alphabet[1..] {
                 if symbol.len() != alphabet[0].len() {
-                    return Err(ConverterError::AlphabetNotUniform);
+                    return Err(CoderFactoryError::AlphabetNotUniform);
                 }
             }
         }
         Self::new(alphabet, None)
     }
 
-    /// Create a [`Converter`](struct.Converter.html) with a delimiter.
-    pub fn with_delimiter(alphabet: &'a [&str], delimiter: char) -> Result<Self, ConverterError> {
+    /// Create a [`Coder`](struct.Coder.html) with a delimiter.
+    pub fn with_delimiter(
+        alphabet: &'a [&str],
+        delimiter: char,
+    ) -> Result<Self, CoderFactoryError> {
         for symbol in alphabet {
             if symbol.contains(delimiter) {
-                return Err(ConverterError::DelimiterOverlapping);
+                return Err(CoderFactoryError::DelimiterOverlapping);
             }
         }
         Self::new(alphabet, Some(delimiter))
@@ -98,7 +101,7 @@ impl<'a> Converter<'a> {
         self.alphabet.len() as u128
     }
 
-    /// Encode data to the [`Converter`](struct.Converter.html)'s base.
+    /// Encode data to the [`Coder`](struct.Coder.html)'s base.
     pub fn encode(&self, mut value: u128) -> String {
         let mut symbols = Vec::new();
         loop {
@@ -119,20 +122,20 @@ impl<'a> Converter<'a> {
         Some(self.alphabet[0].len())
     }
 
-    fn symbol_value(&self, symbol: &str) -> Result<u128, DecodeError> {
+    fn symbol_value(&self, symbol: &str) -> Result<u128, DecoderError> {
         self.symbols_map
             .get(symbol)
-            .ok_or(DecodeError::SymbolInvalid)
+            .ok_or(DecoderError::SymbolInvalid)
             .and_then(|&x| Ok(x as u128))
     }
 
-    /// Decode data from the [`Converter`](struct.Converter.html)'s base.
-    pub fn decode(&self, value: &str) -> Result<u128, DecodeError> {
+    /// Decode data from the [`Coder`](struct.Coder.html)'s base.
+    pub fn decode(&self, value: &str) -> Result<u128, DecoderError> {
         if value.is_empty() {
-            return Err(DecodeError::InputEmpty);
+            return Err(DecoderError::InputEmpty);
         }
         if self.symbol_len().is_some() && value.len() % self.symbol_len().unwrap() != 0 {
-            return Err(DecodeError::InputLengthUnmatched);
+            return Err(DecoderError::InputLengthUnmatched);
         }
 
         let rsymbols: Box<Iterator<Item = &str>> = if self.delimiter.is_some() {
@@ -155,11 +158,11 @@ impl<'a> Converter<'a> {
             } else {
                 multiplier = multiplier
                     .checked_mul(self.base())
-                    .ok_or(DecodeError::Overflow)?;
+                    .ok_or(DecoderError::Overflow)?;
             }
             result = result
-                .checked_add(v?.checked_mul(multiplier).ok_or(DecodeError::Overflow)?)
-                .ok_or(DecodeError::Overflow)?;
+                .checked_add(v?.checked_mul(multiplier).ok_or(DecoderError::Overflow)?)
+                .ok_or(DecoderError::Overflow)?;
         }
         Ok(result)
     }
@@ -173,141 +176,126 @@ mod tests {
     fn test_new_returns_ok() {
         let binary_alphabet = ["0", "1"];
 
-        let result = Converter::with_uniform_alphabet(&binary_alphabet);
+        let result = Coder::with_uniform_alphabet(&binary_alphabet);
         assert!(result.is_ok());
 
-        let result = Converter::with_delimiter(&binary_alphabet, '-');
+        let result = Coder::with_delimiter(&binary_alphabet, '-');
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_new_returns_err() {
         let empty_alphabet = [];
-        let result = Converter::with_uniform_alphabet(&empty_alphabet);
-        assert_eq!(ConverterError::AlphabetTooSmall, result.unwrap_err());
-        let result = Converter::with_delimiter(&empty_alphabet, '-');
-        assert_eq!(ConverterError::AlphabetTooSmall, result.unwrap_err());
+        let result = Coder::with_uniform_alphabet(&empty_alphabet);
+        assert_eq!(CoderFactoryError::AlphabetTooSmall, result.unwrap_err());
+        let result = Coder::with_delimiter(&empty_alphabet, '-');
+        assert_eq!(CoderFactoryError::AlphabetTooSmall, result.unwrap_err());
 
         let singleton_alphabet = ["a"];
-        let result = Converter::with_uniform_alphabet(&singleton_alphabet);
-        assert_eq!(ConverterError::AlphabetTooSmall, result.unwrap_err());
-        let result = Converter::with_delimiter(&singleton_alphabet, '-');
-        assert_eq!(ConverterError::AlphabetTooSmall, result.unwrap_err());
+        let result = Coder::with_uniform_alphabet(&singleton_alphabet);
+        assert_eq!(CoderFactoryError::AlphabetTooSmall, result.unwrap_err());
+        let result = Coder::with_delimiter(&singleton_alphabet, '-');
+        assert_eq!(CoderFactoryError::AlphabetTooSmall, result.unwrap_err());
 
         let monotone_alphabet = ["x", "x"];
-        let result = Converter::with_uniform_alphabet(&monotone_alphabet);
-        assert_eq!(ConverterError::SymbolsNotUnique, result.unwrap_err());
-        let result = Converter::with_delimiter(&monotone_alphabet, '-');
-        assert_eq!(ConverterError::SymbolsNotUnique, result.unwrap_err());
+        let result = Coder::with_uniform_alphabet(&monotone_alphabet);
+        assert_eq!(CoderFactoryError::SymbolsNotUnique, result.unwrap_err());
+        let result = Coder::with_delimiter(&monotone_alphabet, '-');
+        assert_eq!(CoderFactoryError::SymbolsNotUnique, result.unwrap_err());
 
         let non_uniform_alphabet = ["a", "bc"];
-        let result = Converter::with_uniform_alphabet(&non_uniform_alphabet);
-        assert_eq!(ConverterError::AlphabetNotUniform, result.unwrap_err());
+        let result = Coder::with_uniform_alphabet(&non_uniform_alphabet);
+        assert_eq!(CoderFactoryError::AlphabetNotUniform, result.unwrap_err());
 
         let binary_alphabet = ["abc", "def"];
-        let result = Converter::with_delimiter(&binary_alphabet, 'b');
-        assert_eq!(ConverterError::DelimiterOverlapping, result.unwrap_err());
+        let result = Coder::with_delimiter(&binary_alphabet, 'b');
+        assert_eq!(CoderFactoryError::DelimiterOverlapping, result.unwrap_err());
     }
 
     #[test]
     fn test_encode_decode() {
         let binary_alphabet = ["0", "1"];
-        let converter = Converter::with_uniform_alphabet(&binary_alphabet).unwrap();
-        assert_eq!("10110111", converter.encode(0b10110111));
+        let coder = Coder::with_uniform_alphabet(&binary_alphabet).unwrap();
+        assert_eq!("10110111", coder.encode(0b10110111));
+        assert_eq!(0b10110111, coder.decode(&"10110111".to_string()).unwrap());
         assert_eq!(
-            0b10110111,
-            converter.decode(&"10110111".to_string()).unwrap()
+            DecoderError::InputEmpty,
+            coder.decode(&"".to_string()).unwrap_err()
         );
         assert_eq!(
-            DecodeError::InputEmpty,
-            converter.decode(&"".to_string()).unwrap_err()
-        );
-        assert_eq!(
-            DecodeError::SymbolInvalid,
-            converter.decode(&"10110121".to_string()).unwrap_err()
+            DecoderError::SymbolInvalid,
+            coder.decode(&"10110121".to_string()).unwrap_err()
         );
 
         let decimal_alphabet_mem: Vec<_> = (0..10).map(|i| i.to_string()).collect();
         let decimal_alphabet: Vec<_> = decimal_alphabet_mem.iter().map(|x| &x[..]).collect();
-        let converter = Converter::with_uniform_alphabet(&decimal_alphabet[..]).unwrap();
-        assert_eq!("5108631", converter.encode(5108631));
-        assert_eq!(5108631, converter.decode(&"5108631".to_string()).unwrap());
+        let coder = Coder::with_uniform_alphabet(&decimal_alphabet[..]).unwrap();
+        assert_eq!("5108631", coder.encode(5108631));
+        assert_eq!(5108631, coder.decode(&"5108631".to_string()).unwrap());
         assert_eq!(
-            DecodeError::SymbolInvalid,
-            converter.decode(&"51x8631".to_string()).unwrap_err()
+            DecoderError::SymbolInvalid,
+            coder.decode(&"51x8631".to_string()).unwrap_err()
         );
 
         let tertiary_alphabet = ["zero", "oone", "twoo"];
-        let converter = Converter::with_uniform_alphabet(&tertiary_alphabet).unwrap();
-        assert_eq!("ooneoonetwoozero", converter.encode(42));
+        let coder = Coder::with_uniform_alphabet(&tertiary_alphabet).unwrap();
+        assert_eq!("ooneoonetwoozero", coder.encode(42));
+        assert_eq!(42, coder.decode(&"ooneoonetwoozero".to_string()).unwrap());
         assert_eq!(
-            42,
-            converter.decode(&"ooneoonetwoozero".to_string()).unwrap()
+            DecoderError::SymbolInvalid,
+            coder.decode(&"ooneoometwoozero".to_string()).unwrap_err()
         );
         assert_eq!(
-            DecodeError::SymbolInvalid,
-            converter
-                .decode(&"ooneoometwoozero".to_string())
-                .unwrap_err()
-        );
-        assert_eq!(
-            DecodeError::InputLengthUnmatched,
-            converter
-                .decode(&"ooneoonetwoozer".to_string())
-                .unwrap_err()
+            DecoderError::InputLengthUnmatched,
+            coder.decode(&"ooneoonetwoozer".to_string()).unwrap_err()
         );
 
-        let converter = Converter::with_delimiter(&binary_alphabet, '-').unwrap();
-        assert_eq!("1-1-0-1", converter.encode(13));
-        assert_eq!(13, converter.decode(&"1-1-0-1".to_string()).unwrap());
+        let coder = Coder::with_delimiter(&binary_alphabet, '-').unwrap();
+        assert_eq!("1-1-0-1", coder.encode(13));
+        assert_eq!(13, coder.decode(&"1-1-0-1".to_string()).unwrap());
         assert_eq!(
-            DecodeError::InputEmpty,
-            converter.decode(&"".to_string()).unwrap_err()
+            DecoderError::InputEmpty,
+            coder.decode(&"".to_string()).unwrap_err()
         );
         assert_eq!(
-            DecodeError::SymbolInvalid,
-            converter.decode(&"1-1-0-1-".to_string()).unwrap_err()
+            DecoderError::SymbolInvalid,
+            coder.decode(&"1-1-0-1-".to_string()).unwrap_err()
         );
         assert_eq!(
-            DecodeError::SymbolInvalid,
-            converter.decode(&"-1-1-0-1".to_string()).unwrap_err()
+            DecoderError::SymbolInvalid,
+            coder.decode(&"-1-1-0-1".to_string()).unwrap_err()
         );
         assert_eq!(
-            DecodeError::SymbolInvalid,
-            converter.decode(&"1--1-0-1".to_string()).unwrap_err()
+            DecoderError::SymbolInvalid,
+            coder.decode(&"1--1-0-1".to_string()).unwrap_err()
         );
         assert_eq!(
-            DecodeError::SymbolInvalid,
-            converter.decode(&"1-10-1".to_string()).unwrap_err()
+            DecoderError::SymbolInvalid,
+            coder.decode(&"1-10-1".to_string()).unwrap_err()
         );
 
         let binary_names_alphabet = ["zero", "one"];
-        let converter = Converter::with_delimiter(&binary_names_alphabet, ' ').unwrap();
-        assert_eq!("one zero one one", converter.encode(11));
+        let coder = Coder::with_delimiter(&binary_names_alphabet, ' ').unwrap();
+        assert_eq!("one zero one one", coder.encode(11));
+        assert_eq!(11, coder.decode(&"one zero one one".to_string()).unwrap());
         assert_eq!(
-            11,
-            converter.decode(&"one zero one one".to_string()).unwrap()
-        );
-        assert_eq!(
-            DecodeError::SymbolInvalid,
-            converter
-                .decode(&"one zer one one".to_string())
-                .unwrap_err()
+            DecoderError::SymbolInvalid,
+            coder.decode(&"one zer one one".to_string()).unwrap_err()
         );
     }
 
     #[test]
     fn test_decode_overflow() {
         let hex_alphabet: Vec<_> = "0123456789abcdef".matches(|_| true).collect();
-        let converter = Converter::with_uniform_alphabet(&hex_alphabet[..]).unwrap();
+        let coder = Coder::with_uniform_alphabet(&hex_alphabet[..]).unwrap();
 
         let ipv6addr: u128 = 0x20010db8000000420000cafffe001337;
         let ipv6addr_s = "20010db8000000420000cafffe001337".to_string();
-        assert_eq!(ipv6addr_s, converter.encode(ipv6addr));
-        assert_eq!(ipv6addr, converter.decode(&ipv6addr_s).unwrap());
+        assert_eq!(ipv6addr_s, coder.encode(ipv6addr));
+        assert_eq!(ipv6addr, coder.decode(&ipv6addr_s).unwrap());
         assert_eq!(
-            DecodeError::Overflow,
-            converter.decode(&(ipv6addr_s + "0")).unwrap_err()
+            DecoderError::Overflow,
+            coder.decode(&(ipv6addr_s + "0")).unwrap_err()
         );
     }
 }
