@@ -1,18 +1,20 @@
 #![warn(missing_docs)]
 #![forbid(unsafe_code)]
 
-//! Encode and decode data with arbitrary bases including support for multicharacter symbols
-//! allowing bases greater than 256.
+//! Encode and decode data with arbitrary bases. This coding supports multicharacter symbols, which
+//! allows bases greater than 256.
 //!
-//! Symbols in the alphabet must have a uniform length or must be separated by a delimiter character.
+//! Symbols in the alphabet must have a uniform length or the encoded data must separate symbols
+//! with a delimiter character.
 //!
 //! Currently only `u128` is supported as a data type.
 
 use itertools::Itertools;
 use std::collections::HashMap;
 
-/// Error type returned by the `Converter` factory methods `with_uniform_alphabet` and
-/// `with_delimiter`.
+/// Error type returned by the [`Converter`](struct.Converter.html) factory methods
+/// [`with_uniform_alphabet`](struct.Converter.html#method.with_uniform_alphabet) and
+/// [`with_delimiter`](struct.Converter.html#method.with_delimiter).
 #[derive(Debug, PartialEq)]
 pub enum ConverterError {
     /// The symbols in the alphabet differ in length.
@@ -25,7 +27,8 @@ pub enum ConverterError {
     SymbolsNotUnique,
 }
 
-/// Error type returned by the `decode` method of the `Converter`.
+/// Error type returned by the [`decode`](struct.Converter.html#method.decode) method of the
+/// [`Converter`](struct.Converter.html).
 #[derive(Debug, PartialEq)]
 pub enum DecodeError {
     /// The input string is empty.
@@ -38,7 +41,7 @@ pub enum DecodeError {
     SymbolInvalid,
 }
 
-/// Converter for a specific alphabet and base and an optional delimiter.
+/// Converter for a specific alphabet.
 #[derive(Debug)]
 pub struct Converter<'a> {
     alphabet: &'a [&'a str],
@@ -69,7 +72,7 @@ impl<'a> Converter<'a> {
         })
     }
 
-    /// Create a `Converter` with a uniform alphabet and no delimiter.
+    /// Create a [`Converter`](struct.Converter.html) with a uniform alphabet and no delimiter.
     pub fn with_uniform_alphabet(alphabet: &'a [&str]) -> Result<Self, ConverterError> {
         if alphabet.len() >= 2 {
             for symbol in &alphabet[1..] {
@@ -81,7 +84,7 @@ impl<'a> Converter<'a> {
         Self::new(alphabet, None)
     }
 
-    /// Create a `Converter` with a delimiter.
+    /// Create a [`Converter`](struct.Converter.html) with a delimiter.
     pub fn with_delimiter(alphabet: &'a [&str], delimiter: char) -> Result<Self, ConverterError> {
         for symbol in alphabet {
             if symbol.contains(delimiter) {
@@ -95,7 +98,7 @@ impl<'a> Converter<'a> {
         self.alphabet.len() as u128
     }
 
-    /// Encode data to the `Converter`'s base.
+    /// Encode data to the [`Converter`](struct.Converter.html)'s base.
     pub fn encode(&self, mut value: u128) -> String {
         let mut symbols = Vec::new();
         loop {
@@ -123,7 +126,7 @@ impl<'a> Converter<'a> {
             .and_then(|&x| Ok(x as u128))
     }
 
-    /// Decode data from the `Converter`'s base.
+    /// Decode data from the [`Converter`](struct.Converter.html)'s base.
     pub fn decode(&self, value: &str) -> Result<u128, DecodeError> {
         if value.is_empty() {
             return Err(DecodeError::InputEmpty);
