@@ -1,7 +1,7 @@
 #![warn(missing_docs)]
 #![forbid(unsafe_code)]
 
-//! Encode and decode data with arbitrary bases. This coding supports multicharacter symbols, which
+//! Encode and decode data with arbitrary bases. This coder supports multicharacter symbols, which
 //! allows bases greater than 256.
 //!
 //! Symbols in the alphabet must have a uniform length or the encoded data must separate symbols
