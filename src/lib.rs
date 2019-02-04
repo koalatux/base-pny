@@ -12,9 +12,8 @@
 use itertools::Itertools;
 use std::collections::HashMap;
 
-/// Error type returned by the [`Coder`](struct.Coder.html) factory methods
-/// [`with_uniform_alphabet`](struct.Coder.html#method.with_uniform_alphabet) and
-/// [`with_delimiter`](struct.Coder.html#method.with_delimiter).
+/// Error type returned by the [`Coder`](struct.Coder.html) factory methods `with_uniform_alphabet`
+/// and `with_delimiter`.
 #[derive(Debug, PartialEq)]
 pub enum CoderFactoryError {
     /// The symbols in the alphabet differ in length.
@@ -27,8 +26,7 @@ pub enum CoderFactoryError {
     SymbolsNotUnique,
 }
 
-/// Error type returned by the [`decode`](struct.Coder.html#method.decode) method of the
-/// [`Coder`](struct.Coder.html).
+/// Error type returned by the `decode` method of the [`Coder`](struct.Coder.html).
 #[derive(Debug, PartialEq)]
 pub enum DecoderError {
     /// The input string is empty.
@@ -72,7 +70,7 @@ impl<'a> Coder<'a> {
         })
     }
 
-    /// Create a [`Coder`](struct.Coder.html) with a uniform alphabet and no delimiter.
+    /// Create a `Coder` with a uniform alphabet and no delimiter.
     pub fn with_uniform_alphabet(alphabet: &'a [&str]) -> Result<Self, CoderFactoryError> {
         if alphabet.len() >= 2 {
             for symbol in &alphabet[1..] {
@@ -84,7 +82,7 @@ impl<'a> Coder<'a> {
         Self::new(alphabet, None)
     }
 
-    /// Create a [`Coder`](struct.Coder.html) with a delimiter.
+    /// Create a `Coder` with a delimiter.
     pub fn with_delimiter(
         alphabet: &'a [&str],
         delimiter: char,
@@ -101,7 +99,7 @@ impl<'a> Coder<'a> {
         self.alphabet.len() as u128
     }
 
-    /// Encode data to the [`Coder`](struct.Coder.html)'s base.
+    /// Encode data to the `Coder`'s base.
     pub fn encode(&self, mut value: u128) -> String {
         let mut symbols = Vec::new();
         loop {
@@ -129,7 +127,7 @@ impl<'a> Coder<'a> {
             .and_then(|&x| Ok(x as u128))
     }
 
-    /// Decode data from the [`Coder`](struct.Coder.html)'s base.
+    /// Decode data from the `Coder`'s base.
     pub fn decode(&self, value: &str) -> Result<u128, DecoderError> {
         if value.is_empty() {
             return Err(DecoderError::InputEmpty);
