@@ -11,6 +11,7 @@
 
 use itertools::Itertools;
 use std::collections::HashMap;
+use std::vec::Vec;
 
 /// Error type returned by the [`Coder`](struct.Coder.html) factory methods `with_uniform_alphabet`
 /// and `with_delimiter`.
@@ -41,14 +42,14 @@ pub enum DecoderError {
 
 /// Coder for a specific alphabet.
 #[derive(Debug)]
-pub struct Coder<'a> {
-    alphabet: &'a [&'a str],
-    symbols_map: HashMap<&'a str, u128>,
+pub struct Coder {
+    alphabet: Vec<String>,
+    symbols_map: HashMap<String, u128>,
     delimiter: Option<char>,
 }
 
-impl<'a> Coder<'a> {
-    fn new(alphabet: &'a [&str], delimiter: Option<char>) -> Result<Self, CoderFactoryError> {
+impl Coder {
+    fn new(alphabet: Vec<String>, delimiter: Option<char>) -> Result<Self, CoderFactoryError> {
         if alphabet.len() < 2 {
             return Err(CoderFactoryError::AlphabetTooSmall);
         }
@@ -57,8 +58,8 @@ impl<'a> Coder<'a> {
         if alphabet
             .iter()
             .enumerate()
-            .map(|(i, &x)| symbols_map.insert(x, i as u128))
-            .any(|x| x.is_some())
+            .map(|(i, s)| symbols_map.insert(s.clone(), i as u128).is_some())
+            .any(|x| x)
         {
             return Err(CoderFactoryError::SymbolsNotUnique);
         }
@@ -71,7 +72,7 @@ impl<'a> Coder<'a> {
     }
 
     /// Create a `Coder` with a uniform alphabet and no delimiter.
-    pub fn with_uniform_alphabet(alphabet: &'a [&str]) -> Result<Self, CoderFactoryError> {
+    pub fn with_uniform_alphabet(alphabet: Vec<String>) -> Result<Self, CoderFactoryError> {
         if alphabet.len() >= 2 {
             for symbol in &alphabet[1..] {
                 if symbol.len() != alphabet[0].len() {
@@ -84,10 +85,10 @@ impl<'a> Coder<'a> {
 
     /// Create a `Coder` with a delimiter.
     pub fn with_delimiter(
-        alphabet: &'a [&str],
+        alphabet: Vec<String>,
         delimiter: char,
     ) -> Result<Self, CoderFactoryError> {
-        for symbol in alphabet {
+        for symbol in &alphabet {
             if symbol.contains(delimiter) {
                 return Err(CoderFactoryError::DelimiterOverlapping);
             }
@@ -103,7 +104,7 @@ impl<'a> Coder<'a> {
     pub fn encode(&self, mut value: u128) -> String {
         let mut symbols = Vec::new();
         loop {
-            symbols.push(self.alphabet[(value % self.base()) as usize]);
+            symbols.push(&self.alphabet[(value % self.base()) as usize]);
             value /= self.base();
             if value == 0 {
                 break;
@@ -172,48 +173,49 @@ mod tests {
 
     #[test]
     fn test_new_returns_ok() {
-        let binary_alphabet = ["0", "1"];
+        let binary_alphabet = vec!["0".to_string(), "1".to_string()];
 
-        let result = Coder::with_uniform_alphabet(&binary_alphabet);
+        let result = Coder::with_uniform_alphabet(binary_alphabet.clone());
         assert!(result.is_ok());
-
-        let result = Coder::with_delimiter(&binary_alphabet, '-');
+        let result = Coder::with_delimiter(binary_alphabet, '-');
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_new_returns_err() {
-        let empty_alphabet = [];
-        let result = Coder::with_uniform_alphabet(&empty_alphabet);
+        let empty_alphabet = vec![];
+
+        let result = Coder::with_uniform_alphabet(empty_alphabet.clone());
         assert_eq!(CoderFactoryError::AlphabetTooSmall, result.unwrap_err());
-        let result = Coder::with_delimiter(&empty_alphabet, '-');
+        let result = Coder::with_delimiter(empty_alphabet, '-');
         assert_eq!(CoderFactoryError::AlphabetTooSmall, result.unwrap_err());
 
-        let singleton_alphabet = ["a"];
-        let result = Coder::with_uniform_alphabet(&singleton_alphabet);
+        let singleton_alphabet = vec!["a".to_string()];
+        let result = Coder::with_uniform_alphabet(singleton_alphabet.clone());
         assert_eq!(CoderFactoryError::AlphabetTooSmall, result.unwrap_err());
-        let result = Coder::with_delimiter(&singleton_alphabet, '-');
+        let result = Coder::with_delimiter(singleton_alphabet, '-');
         assert_eq!(CoderFactoryError::AlphabetTooSmall, result.unwrap_err());
 
-        let monotone_alphabet = ["x", "x"];
-        let result = Coder::with_uniform_alphabet(&monotone_alphabet);
+        let monotone_alphabet = vec!["x".to_string(), "x".to_string()];
+        let result = Coder::with_uniform_alphabet(monotone_alphabet.clone());
         assert_eq!(CoderFactoryError::SymbolsNotUnique, result.unwrap_err());
-        let result = Coder::with_delimiter(&monotone_alphabet, '-');
+        let result = Coder::with_delimiter(monotone_alphabet, '-');
         assert_eq!(CoderFactoryError::SymbolsNotUnique, result.unwrap_err());
 
-        let non_uniform_alphabet = ["a", "bc"];
-        let result = Coder::with_uniform_alphabet(&non_uniform_alphabet);
+        let non_uniform_alphabet = vec!["a".to_string(), "bc".to_string()];
+        let result = Coder::with_uniform_alphabet(non_uniform_alphabet);
         assert_eq!(CoderFactoryError::AlphabetNotUniform, result.unwrap_err());
 
-        let binary_alphabet = ["abc", "def"];
-        let result = Coder::with_delimiter(&binary_alphabet, 'b');
+        let binary_alphabet = vec!["abc".to_string(), "def".to_string()];
+        let result = Coder::with_delimiter(binary_alphabet, 'b');
         assert_eq!(CoderFactoryError::DelimiterOverlapping, result.unwrap_err());
     }
 
     #[test]
     fn test_encode_decode() {
-        let binary_alphabet = ["0", "1"];
-        let coder = Coder::with_uniform_alphabet(&binary_alphabet).unwrap();
+        let binary_alphabet = vec!["0".to_string(), "1".to_string()];
+
+        let coder = Coder::with_uniform_alphabet(binary_alphabet.clone()).unwrap();
         assert_eq!("10110111", coder.encode(0b10110111));
         assert_eq!(0b10110111, coder.decode(&"10110111".to_string()).unwrap());
         assert_eq!(
@@ -225,9 +227,8 @@ mod tests {
             coder.decode(&"10110121".to_string()).unwrap_err()
         );
 
-        let decimal_alphabet_mem: Vec<_> = (0..10).map(|i| i.to_string()).collect();
-        let decimal_alphabet: Vec<_> = decimal_alphabet_mem.iter().map(|x| &x[..]).collect();
-        let coder = Coder::with_uniform_alphabet(&decimal_alphabet[..]).unwrap();
+        let decimal_alphabet: Vec<_> = (0..10).map(|i| i.to_string()).collect();
+        let coder = Coder::with_uniform_alphabet(decimal_alphabet).unwrap();
         assert_eq!("5108631", coder.encode(5108631));
         assert_eq!(5108631, coder.decode(&"5108631".to_string()).unwrap());
         assert_eq!(
@@ -235,8 +236,8 @@ mod tests {
             coder.decode(&"51x8631".to_string()).unwrap_err()
         );
 
-        let tertiary_alphabet = ["zero", "oone", "twoo"];
-        let coder = Coder::with_uniform_alphabet(&tertiary_alphabet).unwrap();
+        let tertiary_alphabet = vec!["zero".to_string(), "oone".to_string(), "twoo".to_string()];
+        let coder = Coder::with_uniform_alphabet(tertiary_alphabet).unwrap();
         assert_eq!("ooneoonetwoozero", coder.encode(42));
         assert_eq!(42, coder.decode(&"ooneoonetwoozero".to_string()).unwrap());
         assert_eq!(
@@ -248,7 +249,7 @@ mod tests {
             coder.decode(&"ooneoonetwoozer".to_string()).unwrap_err()
         );
 
-        let coder = Coder::with_delimiter(&binary_alphabet, '-').unwrap();
+        let coder = Coder::with_delimiter(binary_alphabet, '-').unwrap();
         assert_eq!("1-1-0-1", coder.encode(13));
         assert_eq!(13, coder.decode(&"1-1-0-1".to_string()).unwrap());
         assert_eq!(
@@ -272,8 +273,8 @@ mod tests {
             coder.decode(&"1-10-1".to_string()).unwrap_err()
         );
 
-        let binary_names_alphabet = ["zero", "one"];
-        let coder = Coder::with_delimiter(&binary_names_alphabet, ' ').unwrap();
+        let binary_names_alphabet = vec!["zero".to_string(), "one".to_string()];
+        let coder = Coder::with_delimiter(binary_names_alphabet, ' ').unwrap();
         assert_eq!("one zero one one", coder.encode(11));
         assert_eq!(11, coder.decode(&"one zero one one".to_string()).unwrap());
         assert_eq!(
@@ -284,9 +285,11 @@ mod tests {
 
     #[test]
     fn test_decode_overflow() {
-        let hex_alphabet: Vec<_> = "0123456789abcdef".matches(|_| true).collect();
-        let coder = Coder::with_uniform_alphabet(&hex_alphabet[..]).unwrap();
-
+        let hex_alphabet: Vec<_> = "0123456789abcdef"
+            .matches(|_| true)
+            .map(|x| x.to_string())
+            .collect();
+        let coder = Coder::with_uniform_alphabet(hex_alphabet).unwrap();
         let ipv6addr: u128 = 0x20010db8000000420000cafffe001337;
         let ipv6addr_s = "20010db8000000420000cafffe001337".to_string();
         assert_eq!(ipv6addr_s, coder.encode(ipv6addr));
