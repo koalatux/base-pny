@@ -1,5 +1,4 @@
 #![warn(missing_docs)]
-#![forbid(unsafe_code)]
 
 //! Encode and decode data with arbitrary bases. This coder supports multicharacter symbols, which
 //! allows bases greater than 256.
@@ -11,6 +10,7 @@
 
 use itertools::Itertools;
 use std::collections::HashMap;
+use std::mem;
 use std::vec::Vec;
 
 /// Error type returned by the [`Coder`](struct.Coder.html) factory methods `with_uniform_alphabet`
@@ -42,23 +42,30 @@ pub enum DecoderError {
 
 /// Coder for a specific alphabet.
 #[derive(Debug)]
-pub struct Coder {
+pub struct Coder<'a> {
     alphabet: Vec<String>,
-    symbols_map: HashMap<String, u128>,
+    symbols_map: HashMap<&'a str, u128>,
     delimiter: Option<char>,
 }
 
-impl Coder {
+impl<'a> Coder<'a> {
     fn new(alphabet: Vec<String>, delimiter: Option<char>) -> Result<Self, CoderFactoryError> {
         if alphabet.len() < 2 {
             return Err(CoderFactoryError::AlphabetTooSmall);
         }
 
         let mut symbols_map = HashMap::with_capacity(alphabet.len());
+        let insert_and_check_dup = |(i, s): (usize, &String)| {
+            let symbol = s.as_str();
+            // The alphabet vec is not going to be changed and the symbols map won't live longer
+            // than the alphabet vec. So we can safely point to the heap allocated Strings.
+            let symbol = unsafe { mem::transmute(symbol) };
+            symbols_map.insert(symbol, i as u128).is_some()
+        };
         if alphabet
             .iter()
             .enumerate()
-            .map(|(i, s)| symbols_map.insert(s.clone(), i as u128).is_some())
+            .map(insert_and_check_dup)
             .any(|x| x)
         {
             return Err(CoderFactoryError::SymbolsNotUnique);
